@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Day • Turtle Slide</title>
+  <style>
+    :root{
+      --bg1:#fff7f2; --bg2:#ffe7ef; --card:#ffffffcc;
+      --text:#2b2b2b; --muted:#6b6b6b;
+      --accent:#ff5c8a; --accent2:#ffb3c7;
+      --shadow: 0 14px 40px rgba(0,0,0,.10);
+      --radius: 22px;
+    }
+
+    /* Turtle theme (toggle via body[data-theme="turtle"]) */
+    body[data-theme="turtle"]{
+      --bg1:#eafff6;
+      --bg2:#dff7ff;
+      --card:#ffffffd6;
+      --text:#103b2a;
+      --muted:#2d6b52;
+      --accent:#22c55e;
+      --accent2:#38bdf8;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% 10%, #fff 0%, transparent 60%),
+        radial-gradient(900px 600px at 80% 20%, #fff 0%, transparent 65%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      overflow-x:hidden;
+    }
+
+    /* Floating pattern for turtle theme */
+    body[data-theme="turtle"]::before{
+      content:"";
+      position:fixed; inset:0;
+      background:
+        radial-gradient(circle at 20px 20px, rgba(34,197,94,.10) 0 6px, transparent 7px),
+        radial-gradient(circle at 70px 55px, rgba(56,189,248,.12) 0 5px, transparent 6px);
+      background-size: 120px 120px;
+      pointer-events:none;
+      z-index:1;
+      opacity:.6;
+    }
+
+    /* FX canvas */
+    #fx{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:5;
+    }
+
+    main{
+      height:100vh;
+      overflow-y:auto;
+      scroll-snap-type:y mandatory;
+      position:relative;
+      z-index:2;
+    }
+    section.slide{
+      min-height:100vh;
+      scroll-snap-align:start;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:42px 18px;
+    }
+
+    .wrap{ width:min(980px, 100%); display:grid; gap:18px; }
+    .card{
+      background:var(--card);
+      backdrop-filter: blur(10px);
+      border:1px solid rgba(255,255,255,.7);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+    .hero{ text-align:center; padding:36px 22px; }
+
+    .badge{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border-radius:999px;
+      background:rgba(255,92,138,.10);
+      border:1px solid rgba(255,92,138,.25);
+      color:var(--accent);
+      font-weight:800;
+      font-size:14px;
+    }
+    body[data-theme="turtle"] .badge{
+      background:rgba(34,197,94,.10);
+      border-color: rgba(34,197,94,.25);
+    }
+
+    h1{
+      margin:14px 0 8px;
+      font-size: clamp(30px, 5vw, 54px);
+      letter-spacing:.3px;
+    }
+    .sub{
+      margin:0 auto;
+      max-width:56ch;
+      color:var(--muted);
+      font-size: clamp(14px, 2.3vw, 18px);
+      line-height:1.7;
+    }
+
+    .grid2{ display:grid; grid-template-columns: 1.2fr .8fr; gap:18px; }
+    @media (max-width: 860px){ .grid2{ grid-template-columns:1fr; } }
+
+    /* Theme toggle */
+    .topbar{
+      position:fixed;
+      left:16px;
+      top:16px;
+      z-index:10;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .toggle{
+      border:none;
+      border-radius:999px;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#fff;
+      box-shadow: 0 12px 26px rgba(0,0,0,.12);
+    }
+    .mini{
+      font-size:12px;
+      padding:9px 12px;
+      background:rgba(255,255,255,.7);
+      border:1px solid rgba(0,0,0,.06);
+      color:var(--text);
+      box-shadow:none;
+    }
+
+    /* Gallery */
+    .gallery{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:12px; }
+    @media (max-width: 700px){ .gallery{ grid-template-columns: repeat(2, 1fr); } }
+    .thumb{
+      position:relative;
+      border-radius:16px;
+      overflow:hidden;
+      aspect-ratio:1/1;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.7);
+      background:#fff;
+    }
+    .thumb img{ width:100%; height:100%; object-fit:cover; transform:scale(1.02); transition:transform .35s ease; display:block; }
+    .thumb:hover img{ transform:scale(1.09); }
+
+    /* Lightbox */
+    .lightbox{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:20;
+    }
+    .lightbox.open{ display:flex; }
+    .lightbox-inner{
+      width:min(980px, 100%);
+      border-radius:22px;
+      overflow:hidden;
+      background:#111;
+      box-shadow: 0 22px 70px rgba(0,0,0,.35);
+      position:relative;
+    }
+    .lightbox-inner img{ width:100%; height:min(78vh, 720px); object-fit:contain; display:block; background:#111; }
+    .lb-top{
+      position:absolute; inset:12px 12px auto 12px;
+      display:flex; justify-content:space-between; gap:10px;
+      pointer-events:none;
+    }
+    .lb-btn{
+      pointer-events:auto;
+      border:none;
+      border-radius:999px;
+      padding:10px 14px;
+      background:rgba(255,255,255,.12);
+      color:#fff;
+      backdrop-filter: blur(8px);
+      cursor:pointer;
+      font-weight:900;
+    }
+    .lb-btn:hover{ background:rgba(255,255,255,.18); }
+
+    /* Player */
+    .player{ display:grid; gap:12px; margin-top:12px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      border:none; border-radius:999px;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#fff;
+      box-shadow: 0 12px 26px rgba(0,0,0,.12);
+    }
+    .btn.secondary{
+      background:rgba(255,255,255,.75);
+      color:var(--text);
+      border:1px solid rgba(0,0,0,.06);
+      box-shadow:none;
+    }
+
+    .now{ font-weight:900; }
+    .hint{ color:var(--muted); font-size:14px; line-height:1.7; }
+    .err{
+      display:none;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(220,38,38,.25);
+      background:rgba(220,38,38,.08);
+      color:#7f1d1d;
+      font-weight:700;
+      font-size:13px;
+    }
+
+    .list{ display:grid; gap:8px; margin-top:8px; }
+    .track{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.06);
+      background: rgba(255,255,255,.75);
+      cursor:pointer;
+    }
+    .track.active{
+      border-color: rgba(255,92,138,.35);
+      background: rgba(255,92,138,.08);
+    }
+    body[data-theme="turtle"] .track.active{
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.10);
+    }
+    .track small{ color:var(--muted); }
+
+    /* Nav dots */
+    .dots{ position:fixed; right:16px; top:50%; transform:translateY(-50%); display:grid; gap:10px; z-index:10; }
+    .dot{ width:10px; height:10px; border-radius:999px; background:rgba(43,43,43,.25); border:1px solid rgba(255,255,255,.7); cursor:pointer; }
+    .dot.active{ background:var(--accent); box-shadow:0 0 0 6px rgba(255,92,138,.15); border-color: rgba(255,92,138,.35); }
+
+    /* Turtle sticker */
+    .turtle{
+      position:fixed;
+      left:14px;
+      bottom:14px;
+      width:86px;
+      height:86px;
+      z-index:9;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.16));
+      opacity:.95;
+      pointer-events:none;
+    }
+
+    footer{ text-align:center; color:var(--muted); font-size:13px; padding:10px 0 0; }
+  </style>
+</head>
+
+<body data-theme="turtle">
+  <canvas id="fx"></canvas>
+
+  <div class="topbar">
+    <button class="toggle" id="themeBtn">🐢 โหมดเต่า</button>
+    <button class="toggle mini" id="fxBtn">✨ เอฟเฟกต์: เปิด</button>
+  </div>
+
+  <!-- cute turtle sticker (SVG) -->
+  <svg class="turtle" viewBox="0 0 120 120" aria-hidden="true">
+    <defs>
+      <linearGradient id="g" x1="0" x2="1">
+        <stop offset="0" stop-color="#22c55e"/>
+        <stop offset="1" stop-color="#38bdf8"/>
+      </linearGradient>
+    </defs>
+    <circle cx="60" cy="60" r="56" fill="rgba(255,255,255,.55)"/>
+    <ellipse cx="62" cy="64" rx="34" ry="26" fill="url(#g)" opacity=".95"/>
+    <ellipse cx="62" cy="64" rx="24" ry="18" fill="rgba(255,255,255,.25)"/>
+    <circle cx="24" cy="66" r="12" fill="#76d38d"/>
+    <circle cx="22" cy="62" r="3" fill="#0f172a"/>
+    <circle cx="44" cy="92" r="9" fill="#76d38d"/>
+    <circle cx="84" cy="92" r="9" fill="#76d38d"/>
+    <circle cx="94" cy="76" r="9" fill="#76d38d"/>
+  </svg>
+
+  <div class="dots" id="dots" aria-label="slide navigation"></div>
+
+  <main id="scroller">
+    <section class="slide" data-title="Cover">
+      <div class="wrap">
+        <div class="card hero">
+          <div class="badge">🐢 โหมดเต่า • 🌷 โหมดดอกไม้ • รูป + เพลง</div>
+          <h1>สุขสันต์วันเกิดนะป่านไอเต่า</h1>
+          <p class="sub">เลื่อนลงไปทีละสไลด์ แล้วเปิดเพลงไปด้วยได้เลย 💞</p>
+        </div>
+
+        <footer>Made with love • Day</footer>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Gallery">
+      <div class="wrap">
+        <div class="card">
+          <div class="now">🖼️ รูปความทรงจำ</div>
+          <div class="hint">คลิกรูปเพื่อดูภาพใหญ่ (ถ้ายังไม่ใส่รูป จะขึ้นรูปเต่าแทน)</div>
+          <div class="gallery" id="gallery"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Music">
+      <div class="wrap">
+        <div class="card">
+          <div class="now">🎵 เพลงโปรด (Playlist)</div>
+          <div class="hint">ต้องกดเล่นครั้งแรกเอง (กฎของเบราว์เซอร์) หลังจากนั้นเล่นต่อเนื่องได้</div>
+
+          <div class="player">
+            <div class="row">
+              <button class="btn" id="playBtn">▶ เล่น</button>
+              <button class="btn secondary" id="prevBtn">⏮ ย้อน</button>
+              <button class="btn secondary" id="nextBtn">ถัดไป ⏭</button>
+            </div>
+
+            <div class="row"><div class="now" id="nowPlaying">—</div></div>
+            <div class="err" id="errBox"></div>
+
+            <audio id="audio" preload="metadata" playsinline></audio>
+            <div class="list" id="trackList"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Message">
+      <div class="wrap">
+        <div class="card">
+          <div class="now">💌 ข้อความจากเดย์</div>
+          <p class="hint" style="font-size:16px">
+            สุขสันต์วันเกินนะป่านน แก่ขึ้นอีกปี1แล้วนะ 14 ปีแล้วนะทำอะไรข้อให้มีแต่สิ่งดีดีเข้ามานะ<br/>อย่าลืมนะ กินข้าว อาบน้ำ ไปนั่งเล่นกับเพื่อนๆบ้าง เป็นเด็กดีของพ่อแม่นะอย่าออกนอกลู่นอกทาง อะไรที่ไม่ดีพี่ข้อให้สิ่งนั้นออกไปจากชีวิตป่านนะ<br/>พี่ไม่รู้นะว่าวันเกินป่าน 28/กุมภาพันธ์/2569 พี่จะได้ไปหามั้ย แต่พี่ว่าข้อความคงส่งถึงอยู่ละ เครียดเรื่องอะไร AI ที่พี่สร้างเอาไว้เข้าไปคุยได้เสมอ
+          </p>
+</div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="End">
+      <div class="wrap">
+        <div class="card hero">
+          <div class="badge">🌙 จบสไลด์</div>
+          <h1>สู่ๆนะพี่ค่อยดูอยู่ห่างๆ ไม่ไหวบอก ไม่ใช่เก็บไว้คนเดียว</h1>
+          <p class="sub">ขอบคุณที่เลื่อนมาจนถึงตรงนี้ 💗</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <div class="lightbox-inner">
+      <div class="lb-top">
+        <button class="lb-btn" id="lbPrev">⟵</button>
+        <button class="lb-btn" id="lbClose">✕ ปิด</button>
+        <button class="lb-btn" id="lbNext">⟶</button>
+      </div>
+      <img id="lbImg" alt="preview" />
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // CONFIG: รูป + เพลง (แก้ชื่อไฟล์ได้)
+    // =========================
+    const IMAGES = [
+      "assets/images/01.jpg",
+      "assets/images/02.jpg",
+      "assets/images/03.jpg",
+      "assets/images/04.jpg",
+      "assets/images/05.jpg",
+      "assets/images/06.jpg",
+    ];
+
+    const TRACKS = [
+      { title: "เพลงที่ 1", file: "assets/music/01.mp3" },
+      { title: "เพลงที่ 2", file: "assets/music/02.mp3" },
+      { title: "เพลงที่ 3", file: "assets/music/03.mp3" },
+    ];
+
+    // =========================
+    // THEME
+    // =========================
+    const themeBtn = document.getElementById('themeBtn');
+    const fxBtn = document.getElementById('fxBtn');
+    let fxEnabled = true;
+
+    function setTheme(next){
+      document.body.dataset.theme = next;
+      themeBtn.textContent = next === 'turtle' ? '🐢 โหมดเต่า' : '🌷 โหมดดอกไม้';
+      rebuildFx();
+    }
+
+    themeBtn.addEventListener('click', () => {
+      setTheme(document.body.dataset.theme === 'turtle' ? 'flower' : 'turtle');
+    });
+
+    fxBtn.addEventListener('click', () => {
+      fxEnabled = !fxEnabled;
+      fxBtn.textContent = fxEnabled ? '✨ เอฟเฟกต์: เปิด' : '✨ เอฟเฟกต์: ปิด';
+    });
+
+    // =========================
+    // GALLERY + LIGHTBOX (with fallback turtle)
+    // =========================
+    const turtleDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 120 120">
+        <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+        <rect width="120" height="120" rx="18" fill="#eefbf5"/>
+        <ellipse cx="62" cy="64" rx="34" ry="26" fill="url(#g)" opacity=".95"/>
+        <ellipse cx="62" cy="64" rx="24" ry="18" fill="rgba(255,255,255,.28)"/>
+        <circle cx="24" cy="66" r="12" fill="#76d38d"/>
+        <circle cx="22" cy="62" r="3" fill="#0f172a"/>
+        <circle cx="44" cy="92" r="9" fill="#76d38d"/>
+        <circle cx="84" cy="92" r="9" fill="#76d38d"/>
+        <circle cx="94" cy="76" r="9" fill="#76d38d"/>
+        <text x="60" y="30" text-anchor="middle" font-size="10" fill="#2d6b52" font-family="system-ui">ใส่รูปที่นี่</text>
+      </svg>
+    `);
+
+    const galleryEl = document.getElementById("gallery");
+    const lightbox = document.getElementById("lightbox");
+    const lbImg = document.getElementById("lbImg");
+    const lbClose = document.getElementById("lbClose");
+    const lbPrev = document.getElementById("lbPrev");
+    const lbNext = document.getElementById("lbNext");
+    let lbIndex = 0;
+
+    function resolvedImage(i){
+      return IMAGES[i] || turtleDataUrl;
+    }
+
+    function openLightbox(i){
+      lbIndex = i;
+      lbImg.src = resolvedImage(lbIndex);
+      lightbox.classList.add("open");
+    }
+    function closeLightbox(){
+      lightbox.classList.remove("open");
+      lbImg.src = "";
+    }
+    function stepLightbox(dir){
+      lbIndex = (lbIndex + dir + IMAGES.length) % IMAGES.length;
+      lbImg.src = resolvedImage(lbIndex);
+    }
+
+    IMAGES.forEach((src, i) => {
+      const div = document.createElement("div");
+      div.className = "thumb";
+      const img = document.createElement('img');
+      img.alt = `photo ${i+1}`;
+      img.src = src;
+      img.onerror = () => { img.onerror = null; img.src = turtleDataUrl; };
+      div.appendChild(img);
+      div.addEventListener("click", () => openLightbox(i));
+      galleryEl.appendChild(div);
+    });
+
+    lbClose.addEventListener("click", closeLightbox);
+    lbPrev.addEventListener("click", () => stepLightbox(-1));
+    lbNext.addEventListener("click", () => stepLightbox(+1));
+    lightbox.addEventListener("click", (e) => { if(e.target === lightbox) closeLightbox(); });
+    window.addEventListener("keydown", (e) => {
+      if(!lightbox.classList.contains("open")) return;
+      if(e.key === "Escape") closeLightbox();
+      if(e.key === "ArrowLeft") stepLightbox(-1);
+      if(e.key === "ArrowRight") stepLightbox(+1);
+    });
+
+    // =========================
+    // MUSIC PLAYLIST
+    // =========================
+    const audio = document.getElementById("audio");
+    const playBtn = document.getElementById("playBtn");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const nowPlaying = document.getElementById("nowPlaying");
+    const trackList = document.getElementById("trackList");
+    const errBox = document.getElementById('errBox');
+
+    let trackIndex = 0;
+    let isPlaying = false;
+
+    function showErr(msg){
+      errBox.style.display = 'block';
+      errBox.textContent = msg;
+    }
+    function clearErr(){
+      errBox.style.display = 'none';
+      errBox.textContent = '';
+    }
+
+    function loadTrack(i){
+      trackIndex = (i + TRACKS.length) % TRACKS.length;
+      audio.src = TRACKS[trackIndex].file;
+      audio.load();
+      nowPlaying.textContent = `กำลังเลือก: ${TRACKS[trackIndex].title}`;
+      [...trackList.children].forEach((el, idx) => el.classList.toggle("active", idx === trackIndex));
+      clearErr();
+    }
+
+    async function safePlay(){
+      try{
+        await audio.play();
+      }catch(e){
+        showErr('เล่นไม่ออก: เปิดผ่าน Live Server และกดปุ่ม ▶ อีกครั้ง (บางเครื่องบล็อก autoplay)');
+      }
+    }
+
+    function togglePlay(){
+      if(!audio.src) loadTrack(0);
+      if(isPlaying) audio.pause();
+      else safePlay();
+    }
+
+    audio.addEventListener("play", () => {
+      isPlaying = true;
+      playBtn.textContent = "⏸ หยุด";
+      nowPlaying.textContent = `กำลังเล่น: ${TRACKS[trackIndex].title}`;
+    });
+
+    audio.addEventListener("pause", () => {
+      isPlaying = false;
+      playBtn.textContent = "▶ เล่น";
+      nowPlaying.textContent = `หยุด: ${TRACKS[trackIndex].title}`;
+    });
+
+    audio.addEventListener("ended", () => {
+      loadTrack(trackIndex + 1);
+      safePlay();
+    });
+
+    audio.addEventListener('error', () => {
+      showErr('หาไฟล์เพลงไม่เจอ: ตรวจว่าอยู่ที่ assets/music/01.mp3–03.mp3 และเปิดด้วย Live Server');
+    });
+
+    playBtn.addEventListener("click", togglePlay);
+    prevBtn.addEventListener("click", () => { loadTrack(trackIndex - 1); safePlay(); });
+    nextBtn.addEventListener("click", () => { loadTrack(trackIndex + 1); safePlay(); });
+
+    TRACKS.forEach((t, i) => {
+      const row = document.createElement("div");
+      row.className = "track";
+      row.innerHTML = `<div><b>${t.title}</b><br><small>${t.file}</small></div><div>▶</div>`;
+      row.addEventListener("click", () => { loadTrack(i); safePlay(); });
+      trackList.appendChild(row);
+    });
+
+    loadTrack(0);
+
+    // =========================
+    // DOT NAV
+    // =========================
+    const scroller = document.getElementById("scroller");
+    const slides = [...document.querySelectorAll("section.slide")];
+    const dots = document.getElementById("dots");
+
+    slides.forEach((s) => {
+      const d = document.createElement("div");
+      d.className = "dot";
+      d.title = s.dataset.title || "Slide";
+      d.addEventListener("click", () => s.scrollIntoView({behavior:"smooth"}));
+      dots.appendChild(d);
+    });
+
+    function updateActiveDot(){
+      const mid = scroller.scrollTop + scroller.clientHeight/2;
+      let bestIdx = 0, bestDist = Infinity;
+      slides.forEach((s, i) => {
+        const dist = Math.abs(s.offsetTop - mid);
+        if(dist < bestDist){ bestDist = dist; bestIdx = i; }
+      });
+      [...dots.children].forEach((d, i) => d.classList.toggle("active", i === bestIdx));
+    }
+    scroller.addEventListener("scroll", updateActiveDot, {passive:true});
+    updateActiveDot();
+
+    // =========================
+    // FX: flower = emoji fall, turtle = bubbles+mini turtles
+    // =========================
+    const canvas = document.getElementById('fx');
+    const ctx = canvas.getContext('2d');
+
+    function resize(){
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let particles = [];
+    const EMOJI = ['🌷','🌸','💗','✨','🐢'];
+
+    function rand(min,max){ return Math.random()*(max-min)+min; }
+
+    function rebuildFx(){
+      particles = [];
+      const theme = document.body.dataset.theme;
+      const n = theme === 'turtle' ? 42 : 46;
+      for(let i=0;i<n;i++) particles.push(spawn(theme));
+    }
+
+    function spawn(theme){
+      if(theme === 'turtle'){
+        return {
+          kind: Math.random() < 0.15 ? 'turtle' : 'bubble',
+          x: rand(0, window.innerWidth),
+          y: rand(0, window.innerHeight),
+          r: rand(4, 11),
+          vy: rand(0.6, 1.7),
+          vx: rand(-0.35, 0.35),
+          wob: rand(0, Math.PI*2),
+          ws: rand(0.01, 0.03),
+          a: rand(0.20, 0.45),
+        };
+      }
+      return {
+        kind:'emoji',
+        x: rand(0, window.innerWidth),
+        y: rand(-window.innerHeight, 0),
+        s: rand(12, 22),
+        vy: rand(0.9, 2.3),
+        vx: rand(-0.6, 0.6),
+        rot: rand(-0.25, 0.25),
+        wob: rand(0, Math.PI*2),
+        ws: rand(0.01, 0.03),
+        ch: EMOJI[Math.floor(Math.random()*EMOJI.length)],
+        a: rand(0.65, 0.95),
+      };
+    }
+
+    function draw(p, theme){
+      if(!fxEnabled) return;
+      if(theme === 'turtle'){
+        if(p.kind === 'bubble'){
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(56,189,248,${p.a})`;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p.x - p.r*0.25, p.y - p.r*0.25, p.r*0.25, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+          ctx.fill();
+          return;
+        }
+        // mini turtle
+        ctx.font = `${Math.max(14, p.r*2.2)}px system-ui`;
+        ctx.globalAlpha = Math.min(1, p.a + 0.35);
+        ctx.fillText('🐢', p.x, p.y);
+        ctx.globalAlpha = 1;
+        return;
+      }
+
+      // emoji fall
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = p.a;
+      ctx.font = `${p.s}px system-ui`;
+      ctx.fillText(p.ch, 0, 0);
+      ctx.restore();
+    }
+
+    function step(){
+      ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+      const theme = document.body.dataset.theme;
+
+      for(const p of particles){
+        p.wob += p.ws;
+        p.x += p.vx + Math.sin(p.wob) * (theme === 'turtle' ? 0.25 : 0.35);
+
+        if(theme === 'turtle'){
+          p.y -= p.vy; // up
+          if(p.y < -40){
+            p.x = rand(0, window.innerWidth);
+            p.y = window.innerHeight + rand(10, 120);
+          }
+        }else{
+          p.y += p.vy; // down
+          if(p.y > window.innerHeight + 30){
+            p.x = rand(0, window.innerWidth);
+            p.y = rand(-120, -20);
+          }
+        }
+
+        if(p.x < -60) p.x = window.innerWidth + 60;
+        if(p.x > window.innerWidth + 60) p.x = -60;
+
+        draw(p, theme);
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    rebuildFx();
+    step();
+
+    // default theme
+    setTheme('turtle');
+  </script>
+</body>
+</html>
